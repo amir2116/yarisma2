@@ -31,13 +31,20 @@ public class Secure {
     }
 
     @Bean
-    public SecurityFilterChain springSecurityFilterChain(HttpSecurity http) {
-        http.authorizeHttpRequests(authorizeRequests -> {
-            authorizeRequests
-                    .requestMatchers("/admin/**").hasRole("ADMIN")
-                    .requestMatchers("/**").hasRole("USER")
-                    .requestMatchers("/button/**").hasAnyRole("BUTTON1", "BUTTON2", "BUTTON3", "BUTTON4")
-                    .anyRequest().authenticated();});
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/button/**").hasAnyRole("BUTTON1", "BUTTON2", "BUTTON3", "BUTTON4")
+                        .requestMatchers("/**").hasRole("USER")
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form.permitAll())
+                .logout(logout -> logout.permitAll());
+
         return http.build();
     }
+
 }

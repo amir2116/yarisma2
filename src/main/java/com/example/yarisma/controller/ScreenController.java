@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class ScreenController {
 
-    public ResponseEntity<CurrentData> getCurrentData() {
-    }
+//    public ResponseEntity<CurrentData> getCurrentData() {
+//
+//    }
 }
