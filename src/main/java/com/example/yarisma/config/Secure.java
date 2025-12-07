@@ -38,7 +38,7 @@ public class Secure {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/button/**").hasAnyRole("BUTTON1", "BUTTON2", "BUTTON3", "BUTTON4")
-                        .requestMatchers("/**").hasRole("USER")
+                        .requestMatchers("/screen/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.permitAll())

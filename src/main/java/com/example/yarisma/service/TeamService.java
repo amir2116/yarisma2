@@ -23,4 +23,8 @@ public class TeamService {
         team.setScore(team.getScore() - i);
         teamRepository.save(team);
     }
+
+    public Team getById(int i) {
+        return teamRepository.findById(i).get();
+    }
 }

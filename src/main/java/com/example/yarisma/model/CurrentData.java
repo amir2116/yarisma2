@@ -1,17 +1,18 @@
 package com.example.yarisma.model;
 
+import com.example.yarisma.model.entity.Question;
 import com.example.yarisma.model.entity.Team;
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
-public class CurrentData {
+public class CurrentData<T> {
 
-    Team t1eam;
-    Team t2eam;
-    Team t3eam;
-    Team t4eam;
+    private Team team1;
+    private Team team2;
+    private Team team3;
+    private Team team4;
 
-
+    private Question question;
 }
