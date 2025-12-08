@@ -10,27 +10,39 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+@RequiredArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Question {
 
     @Id
     private Long id;
-
-    private String questionTab;
+//
+//    @Column(length = 100)
+//    private String questionTab;
 
     @Enumerated(EnumType.STRING)
     private QuestionType questionType;
 
+    @Column
     private String questionTitle;
 
     @Column(columnDefinition = "TEXT")
     private String questionBody;
 
+    @Column
     private String mediaUrl;
 
+    @Column
     private Integer score;
 
-    private Integer durationSec;
+//    @Column
+//    private Integer durationSec;
 
+    @ManyToOne
+    private Team answeredTeam;
+
+    public Question(Long id) {
+        this.id = id;
+    }
 }
