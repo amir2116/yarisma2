@@ -12,7 +12,8 @@ public enum TeamConstant {
     TEAM1(1l,"team1",GREEN),
     TEAM2(2l,"team2",RED),
     TEAM3(3l,"team3",YELLOW),
-    TEAM4(4l,"team4",BLUE),;
+    TEAM4(4l,"team4",BLUE),
+    TEAM5(5l,"VOID",BLACK),;
 
     private final long id;
     private final String name;
