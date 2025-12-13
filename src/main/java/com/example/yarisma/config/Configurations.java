@@ -26,7 +26,8 @@ public class Configurations {
                             updateTeam(teamRepository, TEAM1),
                             updateTeam(teamRepository, TEAM2),
                             updateTeam(teamRepository, TEAM3),
-                            updateTeam(teamRepository, TEAM4)
+                            updateTeam(teamRepository, TEAM4),
+                            updateTeam(teamRepository,TEAM5)
                     )
             );
             questionRepository.saveAll(

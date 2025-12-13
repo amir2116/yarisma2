@@ -7,6 +7,7 @@ import com.example.yarisma.model.entity.Team;
 import com.example.yarisma.service.QuestionService;
 import com.example.yarisma.service.TeamService;
 import lombok.RequiredArgsConstructor;
+import com.example.yarisma.config.BuzzerHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/admin")
@@ -23,6 +25,7 @@ public class AdminController {
     private final TeamService teamService;
     private final QuestionService questionService;
     private final SimpMessageSendingOperations messagingTemplate;
+    private final BuzzerHandler buzzerHandler;
 
     @PutMapping("/team/{id}/score/increase/{value}")
     public ResponseEntity<ResponseDto> increaseScore(@PathVariable Integer id, @PathVariable int value) {
@@ -61,6 +64,24 @@ public class AdminController {
     public ResponseEntity<ResponseDto> sendFailure() {
         messagingTemplate.convertAndSend("/topic/feedback", "FAILURE");
         return ResponseEntity.ok(new ResponseDto("FAILURE_SENT"));
+    }
+
+    @PostMapping("/buzzer/enable")
+    public ResponseEntity<ResponseDto> enableBuzzers() {
+        buzzerHandler.enableBuzzers();
+        return ResponseEntity.ok(new ResponseDto("BUZZERS_ENABLED"));
+    }
+
+    @PostMapping("/buzzer/disable")
+    public ResponseEntity<ResponseDto> disableBuzzers() throws IOException {
+        buzzerHandler.disableBuzzers();
+        return ResponseEntity.ok(new ResponseDto("BUZZERS_DISABLED"));
+    }
+
+    @PostMapping("/buzzer/reset")
+    public ResponseEntity<ResponseDto> resetBuzzers() throws IOException {
+        buzzerHandler.resetRound();
+        return ResponseEntity.ok(new ResponseDto("BUZZERS_RESET"));
     }
 
     @PostMapping("/broadcast/data")

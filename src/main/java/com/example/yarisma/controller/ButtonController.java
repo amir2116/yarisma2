@@ -6,15 +6,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @RestController
 @RequestMapping("/button")
 public class ButtonController {
 
     @GetMapping("button")
-    public synchronized ResponseEntity<LocalDate>  getDate(){
-        LocalDate date = LocalDate.now();
-        return ResponseEntity.ok(date);
+    public synchronized ResponseEntity<LocalTime>  getDate(){
+        LocalTime time = LocalTime.now();
+        return ResponseEntity.ok(time);
     }
 
 }
