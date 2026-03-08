@@ -31,4 +31,10 @@ public class QuestionService {
         question.setAnsweredTeam(teamRepository.findById(teamId).get());
         questionRepository.save(question);
     }
+
+    public void unauthorizeQuestion(Long questionId) {
+        Question question= questionRepository.getById(questionId);
+        question.setAnsweredTeam(null);
+        questionRepository.save(question);
+    }
 }

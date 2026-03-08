@@ -7,14 +7,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/button")
 public class ButtonController {
 
-    @GetMapping("button")
+    @GetMapping("/button")
     public synchronized ResponseEntity<LocalTime>  getDate(){
+        DateTimeFormatter  dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         LocalTime time = LocalTime.now();
+        time.format(dtf);
         return ResponseEntity.ok(time);
     }
 

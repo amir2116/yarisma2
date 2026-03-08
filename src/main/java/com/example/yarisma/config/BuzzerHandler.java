@@ -14,20 +14,25 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 @Slf4j
 @Component
 public class BuzzerHandler extends TextWebSocketHandler {
 
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    private final Set<String> disabledTeams = ConcurrentHashMap.newKeySet();
 
     private final AtomicBoolean winnerChosen = new AtomicBoolean(false);
-    private final AtomicBoolean buzzerEnabled = new AtomicBoolean(true);
+    private final AtomicBoolean buzzerEnabled = new AtomicBoolean(false);
 
     private volatile String winnerSessionId = null;
-    private volatile String winnerName=null;
+    private volatile String winnerName = null;
     private volatile Instant winnerTimestamp = null;
+
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
@@ -36,6 +41,7 @@ public class BuzzerHandler extends TextWebSocketHandler {
         sessions.add(session);
         session.getAttributes().put("teamLabel", deriveTeamLabel(session));
         log.info("Connected to web socket at {}", session.getUri());
+        sendCurrentAvailability(session);
     }
 
     @Override
@@ -49,52 +55,53 @@ public class BuzzerHandler extends TextWebSocketHandler {
         String payload = message.getPayload() == null ? "" : message.getPayload().trim();
         String upper = payload.toUpperCase();
 
-        if(!buzzerEnabled.get()){
+        if (!isSessionAllowed(session)) {
             log.info("Buzz attempt while disabled from {}", session.getUri());
-            try { session.sendMessage(new TextMessage("DISABLED")); } catch (IOException ignored) {}
+            try {
+                session.sendMessage(new TextMessage("DISABLED"));
+            } catch (IOException ignored) {
+            }
             return;
         }
 
-        // Accept plain "BUZZ", "RESET", and ignore/ack other payloads (e.g., JOIN).
-        if(upper.equals("BUZZ")) {
+        if (upper.equals("BUZZ")) {
             handleBuzzer(session);
-        }
-        else if(upper.equals("RESET")){
+        } else if (upper.equals("RESET")) {
             resetRound();
-        }
-        else {
+        } else {
             log.info("Ignoring non-buzz payload '{}' from {}", payload, session.getUri());
         }
-
     }
 
+    private boolean isSessionAllowed(WebSocketSession session) {
+        String teamLabel = (String) session.getAttributes().getOrDefault("teamLabel", deriveTeamLabel(session));
+        return buzzerEnabled.get() && !disabledTeams.contains(teamLabel);
+    }
 
     private void handleBuzzer(WebSocketSession session) {
-        if(winnerChosen.compareAndSet(false,true)){
-            winnerSessionId=session.getId();
-            winnerName=(String) session.getAttributes().getOrDefault("teamLabel","UNKNOWN");
-            winnerTimestamp=Instant.now();
+        if (winnerChosen.compareAndSet(false, true)) {
+            winnerSessionId = session.getId();
+            winnerName = (String) session.getAttributes().getOrDefault("teamLabel", "UNKNOWN");
+            winnerTimestamp = Instant.now();
             log.info("New buzzer session at {} winner {}", session.getUri(), winnerName);
             broadcastResults(session, true);
-            messagingTemplate.convertAndSend("/topic/feedback","WINNER:"+winnerName);
-        }
-        else {
+            messagingTemplate.convertAndSend("/topic/feedback", "WINNER:" + winnerName);
+        } else {
             log.info("Already buzzer session at {}", session.getUri());
             broadcastResults(session, false);
         }
     }
 
-
-    public void resetRound()throws IOException {
+    public void resetRound() throws IOException {
         winnerChosen.set(false);
         winnerSessionId = null;
         winnerName = null;
         winnerTimestamp = null;
         log.info("Reset round");
         broadcastMessage("RESET");
-        messagingTemplate.convertAndSend("/topic/feedback","RESET");
+        broadcastAvailability();
+        messagingTemplate.convertAndSend("/topic/feedback", "RESET");
     }
-
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
@@ -102,15 +109,15 @@ public class BuzzerHandler extends TextWebSocketHandler {
         session.close(CloseStatus.SERVER_ERROR);
     }
 
-    private String deriveTeamLabel(WebSocketSession session){
+    private String deriveTeamLabel(WebSocketSession session) {
         URI uri = session.getUri();
-        if(uri==null) return "UNKNOWN";
-        String path = uri.getPath(); // e.g., /buzzer1
-        if(path==null || path.isBlank()) return "UNKNOWN";
-        String last = path.substring(path.lastIndexOf('/')+1).toUpperCase(); // BUZZER1
-        if(last.startsWith("BUZZER")) {
-            String suffix = last.replace("BUZZER","");
-            if(!suffix.isBlank()) {
+        if (uri == null) return "UNKNOWN";
+        String path = uri.getPath();
+        if (path == null || path.isBlank()) return "UNKNOWN";
+        String last = path.substring(path.lastIndexOf('/') + 1).toUpperCase();
+        if (last.startsWith("BUZZER")) {
+            String suffix = last.replace("BUZZER", "");
+            if (!suffix.isBlank()) {
                 return "TEAM" + suffix;
             }
         }
@@ -118,7 +125,9 @@ public class BuzzerHandler extends TextWebSocketHandler {
     }
 
     private void broadcastResults(WebSocketSession winnerSession, boolean isWinnerAttempt) {
-        String winnerLabel = isWinnerAttempt ? (String) winnerSession.getAttributes().getOrDefault("teamLabel","UNKNOWN") : winnerName;
+        String winnerLabel = isWinnerAttempt
+                ? (String) winnerSession.getAttributes().getOrDefault("teamLabel", "UNKNOWN")
+                : winnerName;
         for (WebSocketSession ws : sessions) {
             if (ws.isOpen()) {
                 try {
@@ -142,7 +151,37 @@ public class BuzzerHandler extends TextWebSocketHandler {
         }
     }
 
-    public void enableBuzzers(){
+    private void sendCurrentAvailability(WebSocketSession session) {
+        if (!session.isOpen()) {
+            return;
+        }
+
+        String teamLabel = (String) session.getAttributes().getOrDefault("teamLabel", deriveTeamLabel(session));
+        String message = (!buzzerEnabled.get() || disabledTeams.contains(teamLabel) || winnerChosen.get()) ? "DISABLED" : "ENABLED";
+
+        try {
+            session.sendMessage(new TextMessage(message));
+        } catch (IOException e) {
+            log.error("Failed to send availability to {}", teamLabel, e);
+        }
+    }
+
+    private void broadcastAvailability() {
+        for (WebSocketSession ws : sessions) {
+            sendCurrentAvailability(ws);
+        }
+    }
+
+    private void broadcastAvailabilityForTeam(String teamLabel) {
+        for (WebSocketSession ws : sessions) {
+            String sessionTeam = (String) ws.getAttributes().getOrDefault("teamLabel", deriveTeamLabel(ws));
+            if (teamLabel.equals(sessionTeam)) {
+                sendCurrentAvailability(ws);
+            }
+        }
+    }
+
+    public void enableBuzzers() {
         buzzerEnabled.set(true);
         winnerChosen.set(false);
         winnerSessionId = null;
@@ -151,10 +190,11 @@ public class BuzzerHandler extends TextWebSocketHandler {
         log.info("Buzzers ENABLED");
         try {
             broadcastMessage("RESET");
-            broadcastMessage("ENABLED");
-        } catch (IOException ignored) {}
-        messagingTemplate.convertAndSend("/topic/feedback","RESET");
-        messagingTemplate.convertAndSend("/topic/feedback","ENABLED");
+            broadcastAvailability();
+        } catch (IOException ignored) {
+        }
+        messagingTemplate.convertAndSend("/topic/feedback", "RESET");
+        messagingTemplate.convertAndSend("/topic/feedback", "ENABLED");
     }
 
     public void disableBuzzers() throws IOException {
@@ -165,6 +205,22 @@ public class BuzzerHandler extends TextWebSocketHandler {
         winnerTimestamp = null;
         log.info("Buzzers DISABLED");
         broadcastMessage("DISABLED");
-        messagingTemplate.convertAndSend("/topic/feedback","DISABLED");
+        messagingTemplate.convertAndSend("/topic/feedback", "DISABLED");
+    }
+
+    public void enableTeam(int teamId) {
+        String teamLabel = "TEAM" + teamId;
+        disabledTeams.remove(teamLabel);
+        log.info("Buzzer ENABLED for {}", teamLabel);
+        broadcastAvailabilityForTeam(teamLabel);
+    }
+
+    public void disableTeam(int teamId) {
+        String teamLabel = "TEAM" + teamId;
+        disabledTeams.add(teamLabel);
+        log.info("Buzzer DISABLED for {}", teamLabel);
+        broadcastAvailabilityForTeam(teamLabel);
     }
 }
+
+
